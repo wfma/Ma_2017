@@ -1,5 +1,5 @@
-# Ma_Boudreau_2017
-R Code and Misc Files for Ma and Boudreau 2017 publication
+# Ma_2017
+R Code and Misc Files for Ma, Boudreau, Leto 2018 publication
 
 Important Notes:
 1. Please set the working directory in the R script to a folder of your choosing. If you do not know how to do that, you may simply create a folder named R-Cache on your desktop and it will run smoothly.
