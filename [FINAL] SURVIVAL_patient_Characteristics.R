@@ -538,34 +538,32 @@ gc()
 #rbind for PanCan
 Pan.surv <- rbind( BLCA, # bladder car
                    BRCA, # breast car
-                   CESC,
+                   CESC, # cervical
                    COAD, # colon adeno
-                   COADREAD, # colorectal adenocarcinoma
-                   ESCA,
+                   ESCA, # esophogeal 
                    GBM,  # gliblastoma multiform
                    HNSC, # head and neck sq carc
                    KIRC, # kidney renal clear cell car
                    KIRP, # kidney renal pap cell car
-                   LGG,
+                   LGG,# brain lower grade glioma
                    LIHC, # liver hep car
                    LUSC, # lung squ cell car
                    LUAD, # lung adeno
-                   MESO,
+                   MESO,# mesothelioma
                    OV,   # ovarian ser cyst
                    PRAD, # prostate adeno
-                   PAAD,
-                   #  PCPG,
-                   READ,
+                   PAAD, # pancreatic
+                   # PCPG, # pheochyromocytoma
+                   READ, # rectum
                    SARC, # sarcoma
                    # SKCM,
                    STAD, # stomach adeno
                    THCA, # thyroid carcinoma
-                   THCA,
                    UCEC, # uterine corpus endometrial carcinoma
                    UCS
 )
 
-### Patient Survival by high/low NOX4, mutant or WT-p53 and overall survival w/o risk table ----
+### Patient Survival by high/low NOX4, mutant or WT-p53 and overall survival ----
 Pan.surv <- Pan.surv[!duplicated(Pan.surv),]
 muts <- select(NOX4.final, Patient.ID, mut, NOX4 = mRNA.Value) # include nox4
 muts$Patient.ID <- str_sub(muts$Patient.ID, start = 1, end = 12)
@@ -580,204 +578,7 @@ muts <- muts[!duplicated(muts),]
 surv <- inner_join(muts, Pan.surv, by = "Patient.ID")
 head(surv)
 
-surv.os <- select(surv, status = vital_status, time, NOX4)
-# determine optimium cut off as high or low
-surv_cutpoint(surv.os, time = "time", event = "status", variable = "NOX4")
-surv.os$Assign[surv.os$NOX4 <= 7.3239] <- "low"
-surv.os$Assign[surv.os$NOX4 > 7.3239] <- "high"
-
-surv.fit <- survfit(Surv(time, as.numeric(status)) ~ Assign, data = surv.os)
-plot <- ggsurvplot(surv.fit, data= surv.os, 
-                   risk.table = F,       # show risk table.
-                   pval = TRUE,
-                   size = 1.5,
-                   break.time.by = 1500,
-                   fontsize = 30,
-                   xlab= "Time in Days",
-                   ggtheme = theme_light(),
-                   surv.median.line = "hv",
-                   title = "Overall Survival by NOX4",
-                   font.x = 0,
-                   font.y = 0,
-                   xlim = c(0,3650), # ten year survival
-                   font.tickslab = 20)
-
-ggsave(print(plot), file = "OS_NOX4-norisk.png", dpi = 900)
-
-
-## mutants only ###
-surv <- inner_join(muts, Pan.surv, by = "Patient.ID")
-head(surv)
-
-surv <- surv[!surv$mut == "WT",]
-
-surv.os <- select(surv, status = vital_status, time, NOX4)
-# determine optimium cut off as high or low
-surv_cutpoint(surv.os, time = "time", event = "status", variable = "NOX4")
-surv.os$Assign[surv.os$NOX4 <= 5.8501] <- "low"
-surv.os$Assign[surv.os$NOX4 > 5.8501] <- "high"
-
-surv.fit <- survfit(Surv(time, as.numeric(status)) ~ Assign, data = surv.os)
-plot <- ggsurvplot(surv.fit, data= surv.os, 
-                   risk.table = F,       # show risk table.
-                   pval = TRUE,
-                   size = 1.5,
-                   break.time.by = 1500,
-                   fontsize = 30,
-                   xlab= "Time in Days",
-                   ggtheme = theme_light(),
-                   surv.median.line = "hv",
-                   title = "Mutants only Survival by NOX4",
-                   font.x = 0,
-                   font.y = 0,
-                   xlim = c(0,3650), # ten year survival
-                   font.tickslab = 20)
-
-ggsave(print(plot), file = "Mut_NOX4-norisk.png", dpi = 600, width = 10, height = 10)
-
-## WTs only ###
-surv <- inner_join(muts, Pan.surv, by = "Patient.ID")
-head(surv)
-
-surv <- surv[surv$mut == "WT",]
-
-surv.os <- select(surv, status = vital_status, time, NOX4)
-# determine optimium cut off as high or low
-surv_cutpoint(surv.os, time = "time", event = "status", variable = "NOX4")
-surv.os$Assign[surv.os$NOX4 <= 195.5592] <- "low"
-surv.os$Assign[surv.os$NOX4 > 195.5592] <- "high"
-
-surv.fit <- survfit(Surv(time, as.numeric(status)) ~ Assign, data = surv.os)
-plot <- ggsurvplot(surv.fit, data= surv.os, 
-                   risk.table = F,       # show risk table.
-                   pval = TRUE,
-                   size = 1.5,
-                   break.time.by = 1500,
-                   fontsize = 30,
-                   xlab= "Time in Days",
-                   ggtheme = theme_light(),
-                   surv.median.line = "hv",
-                   title = "WT only Survival by NOX4",
-                   font.x = 0,
-                   font.y = 0,
-                   xlim = c(0,3650),
-                   font.tickslab = 20)
-
-ggsave(print(plot), file = "WT_NOX4-norisk.png", dpi = 600, width = 4, height = 4)
-### Patient Survival by high/low NOX4, mutant or WT-p53 and overall survival w/o risk table or p-values ----
-Pan.surv <- Pan.surv[!duplicated(Pan.surv),]
-muts <- select(NOX4.final, Patient.ID, mut, NOX4 = mRNA.Value) # include nox4
-muts$Patient.ID <- str_sub(muts$Patient.ID, start = 1, end = 12)
-dup <- muts[(duplicated(muts)),]
-
-muts <- muts[!duplicated(muts),]
-# we note that there are duplicates b/c there are patients with >1 tumor samples
-# we will remove the duplicated one, since these patients' samples are all tumors
-# and that (data not shown) the tumors carry same mutations
-
-## Overall survival ## 
-surv <- inner_join(muts, Pan.surv, by = "Patient.ID")
-head(surv)
-
-surv.os <- select(surv, status = vital_status, time, NOX4)
-# determine optimium cut off as high or low
-surv_cutpoint(surv.os, time = "time", event = "status", variable = "NOX4")
-surv.os$Assign[surv.os$NOX4 <= 7.3239] <- "low"
-surv.os$Assign[surv.os$NOX4 > 7.3239] <- "high"
-
-surv.fit <- survfit(Surv(time, as.numeric(status)) ~ Assign, data = surv.os)
-plot <- ggsurvplot(surv.fit, data= surv.os, 
-                   risk.table = F,       # show risk table.
-                   pval = F,
-                   size = 1.5,
-                   break.time.by = 1500,
-                   fontsize = 30,
-                   xlab= "Time in Days",
-                   ggtheme = theme_light(),
-                   surv.median.line = "hv",
-                   title = "Overall Survival by NOX4",
-                   font.x = 0,
-                   font.y = 0,
-                   xlim = c(0,3650), # ten year survival
-                   font.tickslab = 20)
-
-ggsave(print(plot), file = "OS_NOX4-norisk-nop.png", dpi = 900)
-
-
-## mutants only ###
-surv <- inner_join(muts, Pan.surv, by = "Patient.ID")
-head(surv)
-
-surv <- surv[!surv$mut == "WT",]
-
-surv.os <- select(surv, status = vital_status, time, NOX4)
-# determine optimium cut off as high or low
-surv_cutpoint(surv.os, time = "time", event = "status", variable = "NOX4")
-surv.os$Assign[surv.os$NOX4 <= 5.8501] <- "low"
-surv.os$Assign[surv.os$NOX4 > 5.8501] <- "high"
-
-surv.fit <- survfit(Surv(time, as.numeric(status)) ~ Assign, data = surv.os)
-plot <- ggsurvplot(surv.fit, data= surv.os, 
-                   risk.table = F,       # show risk table.
-                   pval = F,
-                   size = 1.5,
-                   break.time.by = 1500,
-                   fontsize = 30,
-                   xlab= "Time in Days",
-                   ggtheme = theme_light(),
-                   surv.median.line = "hv",
-                   title = "Mutants only Survival by NOX4",
-                   font.x = 0,
-                   font.y = 0,
-                   xlim = c(0,3650), # ten year survival
-                   font.tickslab = 20)
-
-ggsave(print(plot), file = "Mut_NOX4-norisk-nop.png", dpi = 600, width = 8, height = 8)
-
-## WTs only ###
-surv <- inner_join(muts, Pan.surv, by = "Patient.ID")
-head(surv)
-
-surv <- surv[surv$mut == "WT",]
-
-surv.os <- select(surv, status = vital_status, time, NOX4)
-# determine optimium cut off as high or low
-surv_cutpoint(surv.os, time = "time", event = "status", variable = "NOX4")
-surv.os$Assign[surv.os$NOX4 <= 195.5592] <- "low"
-surv.os$Assign[surv.os$NOX4 > 195.5592] <- "high"
-
-surv.fit <- survfit(Surv(time, as.numeric(status)) ~ Assign, data = surv.os)
-plot <- ggsurvplot(surv.fit, data= surv.os, 
-                   risk.table = F,       # show risk table.
-                   pval = F,
-                   size = 1.5,
-                   break.time.by = 1500,
-                   fontsize = 30,
-                   xlab= "Time in Days",
-                   ggtheme = theme_light(),
-                   surv.median.line = "hv",
-                   title = "WT only Survival by NOX4",
-                   font.x = 0,
-                   font.y = 0,
-                   xlim = c(0,3650),
-                   font.tickslab = 20)
-
-ggsave(print(plot), file = "WT_NOX4-norisk-nop.png", dpi = 600, width = 8, height = 8)
-
-### Patient Survival by high/low NOX4, mutant or WT-p53 and overall survival  with risk table----
-Pan.surv <- Pan.surv[!duplicated(Pan.surv),]
-muts <- select(NOX4.final, Patient.ID, mut, NOX4 = mRNA.Value) # include nox4
-muts$Patient.ID <- str_sub(muts$Patient.ID, start = 1, end = 12)
-dup <- muts[(duplicated(muts)),]
-
-muts <- muts[!duplicated(muts),]
-# we note that there are duplicates b/c there are patients with >1 tumor samples
-# we will remove the duplicated one, since these patients' samples are all tumors
-# and that (data not shown) the tumors carry same mutations
-
-## Overall survival ## 
-surv <- inner_join(muts, Pan.surv, by = "Patient.ID")
-head(surv)
+summary(surv)
 
 surv.os <- select(surv, status = vital_status, time, NOX4)
 # determine optimium cut off as high or low
@@ -799,8 +600,8 @@ plot <- ggsurvplot(surv.fit, data= surv.os,
                    font.x = 0,
                    font.y = 0,
                    font.tickslab = 20)
-
-ggsave(print(plot), file = "OS_NOX4.png", dpi = 900)
+# 
+ggsave(print(plot), file = "OS_NOX4-with-descrpt.png", dpi = 900)
 
 
 ## mutants only ###
@@ -830,7 +631,7 @@ plot <- ggsurvplot(surv.fit, data= surv.os,
                    font.y = 0,
                    font.tickslab = 20)
 
-ggsave(print(plot), file = "Mut_NOX4.png", dpi = 900)
+ggsave(print(plot), file = "Mut_NOX4-with-descrpt.png", dpi = 900)
 
 ## WTs only ###
 surv <- inner_join(muts, Pan.surv, by = "Patient.ID")
@@ -859,4 +660,4 @@ plot <- ggsurvplot(surv.fit, data= surv.os,
                    font.y = 0,
                    font.tickslab = 20)
 
-ggsave(print(plot), file = "WT_NOX4.png", dpi = 900)
+ggsave(print(plot), file = "WT_NOX4-with-descrpt.png", dpi = 900)
