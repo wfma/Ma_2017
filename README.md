@@ -1,5 +1,6 @@
 # Ma_2018
 R Code and Misc Files for Ma, Boudreau, Leto 2018 publication
+<a href="https://zenodo.org/badge/latestdoi/93648151"><img src="https://zenodo.org/badge/93648151.svg" alt="DOI"></a>
 
 Important Notes:
 1. Please set the working directory in the R script to a folder of your choosing. If you do not know how to do that, you may simply create a folder named R-Cache on your desktop and it will run smoothly.
