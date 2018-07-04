@@ -176,6 +176,7 @@ Gene.list <- c(
   "TGFB2",
   "TIMP1",
   "VCAN",
+  "S100A4",
   "CDH1",
   "LMNA", #lamin 1
   "OCLN",
@@ -246,6 +247,9 @@ EMT.SAbiosci.genes <-
   c(
     "AHNAK",
     "BMP1",
+    "S100A4",
+    "ZEB1",
+    "ZEB2",
     "CALD1",
     "ACTA2",
     "CDH2",
@@ -266,26 +270,19 @@ EMT.SAbiosci.genes <-
     "SERPINE1",
     "SNAI1",
     "SNAI2",
-    "SNAI3",
     "SOX10",
     "SPARC",
-    "STEAP1",
-    "TCF7L2",
     "TIMP1",
-    "TMEFF1",
-    "TMEM132A",
     "TWIST1",
     "VCAN",
     "VIM",
-    "VPS13A",
     "WNT5A",
-    "WNT5B",
     "NOX4", "CYBB", "NOX3", "NOX5", "DUOX1", "DUOX2", "CYBA", "NOX1"
   )
 #EMT-downregulated:
 MET.SAbiosci.genes <-
   c(
-
+    
     "CDH1",
     "LMNA", #lamin 1
     "OCLN",
@@ -319,7 +316,7 @@ Adh.Junctions.SAbiosci.genes <-
     "VEZT",
     "F11R",
     "DSC2",
-    
+    "SDC1",
     "NOX4", "CYBB", "NOX3", "NOX5", "DUOX1", "DUOX2", "CYBA", "NOX1"
     
     
@@ -679,8 +676,56 @@ P53.final <-
 gc()
 ### NOX4-4;DUOX1-2 EMT/MET corrl: w/o p53 designation ----
 
+# this function will extract NOX4 and a gene (fa) from the df = Pan.final and create a matrix 
+# of correlation grouped by p53 mutation status
+# and also create a column of
+calc.rho.unclustered.no_p53 <-
+  function(list, wid = 0.5, hei = 0.5, dpi = 100, low.rho = -1, high.rho = 1) {
+    df <- Pan.final[Pan.final$Gene.Symbol %in% list,] 
+    
+    # use this  function to calculate the spearman rank corrl in a matrix
+    temp <- select(df, # this object is created later after filtering for selected p53 mutations
+                   -Case.Study, -P53.Mutation)
+    temp.unique <- unique(temp, nmax = 2 ) # removes duplicates
+    temp.wide <- spread(data = temp.unique, key = Gene.Symbol, value = mRNA.Value)
+    
+    rownames(temp.wide) <- temp.wide$Patient.ID
+    temp.wide.IDRow <- select(temp.wide, -Patient.ID) # remove IDrow
+    cor.table <- cor(temp.wide.IDRow, method = "spearman", use = "pairwise.complete.obs")
+  
+    noxes.unsorted <- c("NOX4", "NOX1", "CYBB", "NOX3", "NOX5", "DUOX1", "DUOX2", "CYBA") # unsorted, ordered by alphabet
+    noxes.vector <- c("NOX4", "NOX1", "CYBB", "CYBA", "NOX3", "NOX5", "DUOX1", "DUOX2") # specified order
+    noxes <- factor(noxes.unsorted, levels = noxes.vector) # ordered in my specific
+    # just want NOX rows
+    cor.select.1 <- cor.table[rownames(cor.table) %in% noxes,]
+    # rm NOX from column (rho = 1's)
+    cor.select.2 <- cor.select.1[, !colnames(cor.select.1) %in% noxes]
+    # need to remove NOX'es from heatmap
+    
+    # now create a heatmap
+    png(paste(deparse(substitute(list)), # deparse(substitute()) calls the name of the df as character string
+              "_nogrouping.png"), width = wid, height = hei, units = 'in', res = dpi)
+    
+    superheat(
+      cor.select.2,
+      bottom.label.text.angle = 90,
+      bottom.label.text.size = 4,
+      scale = F,
+      grid.hline.col = "white",
+      grid.vline.col = "white",
+      grid.hline.size = 1,
+      grid.vline.size = 1,
+      pretty.order.rows = TRUE,
+      pretty.order.cols = TRUE,
+      left.label.text.alignment = "right",
+      bottom.label.text.alignment = "right",
+      heat.pal = c("turquoise", "white", "violetred1"),
+      heat.lim = c(-0.8,0.8))
+    
+       dev.off()
+  }    
 
-
+    
 # frequency of p53 mutation in selected patients
 # P53_com.sub will then be merged with pan-cancer set to obtain p53 mutation for each patient
 RNA.joined.p53 <- inner_join(P53.final, Pan.RNA, by = "Patient.ID")
@@ -714,67 +759,427 @@ mut.interest <- c(
 Pan.final <- RNA.joined.p53[RNA.joined.p53$P53.Mutation %in% mut.interest,]
 head(Pan.final)
 
-# this function will extract NOX4 and a gene (fa) from the df = Pan.final and create a matrix 
-# of correlation grouped by p53 mutation status
-# and also create a column of
-calc.rho.unclustered.no_p53 <-
-  function(list, wid = 0.5, hei = 0.5, dpi = 600) {
-    df <- Pan.final[Pan.final$Gene.Symbol %in% list,] 
-    
-    # use this  function to calculate the spearman rank corrl in a matrix
-    temp <- select(df, # this object is created later after filtering for selected p53 mutations
-                   -Case.Study, -P53.Mutation)
-    temp.unique <- unique(temp, nmax = 2 ) # removes duplicates
-    temp.wide <- spread(data = temp.unique, key = Gene.Symbol, value = mRNA.Value)
-    
-    rownames(temp.wide) <- temp.wide$Patient.ID
-    temp.wide.IDRow <- select(temp.wide, -Patient.ID) # remove IDrow
-    cor.table <- cor(temp.wide.IDRow, method = "spearman", use = "pairwise.complete.obs")
+#### NADPHoxidase correlations to genepanels faceted by p53 ----
+
+
+Make.heatmap.p53 <- function(NOX.master = "NOX4", gene_list_master = EMT.SAbiosci.genes, dpi = 600, wid = 9, hei = 4) {
   
-    noxes.unsorted <- c("NOX4", "NOX1", "CYBB", "NOX3", "NOX5", "DUOX1", "DUOX2", "CYBA") # unsorted, ordered by alphabet
-    noxes.vector <- c("NOX4", "NOX1", "CYBB", "CYBA", "NOX3", "NOX5", "DUOX1", "DUOX2") # specified order
-    noxes <- factor(noxes.unsorted, levels = noxes.vector) # ordered in my specific
-    # just want NOX rows
-    cor.select.1 <- cor.table[rownames(cor.table) %in% noxes,]
-    # rm NOX from column (rho = 1's)
-    cor.select.2 <- cor.select.1[, !colnames(cor.select.1) %in% noxes]
-    # need to remove NOX'es from heatmap
+  filter.nox <- function(NOX = NOX.master, mutation, gene_list = gene_list_master) {
+    # outputs the rho of the specificed NOX to the specified genes in the specific p53 mutant group
+    # I chosed not to use piping operator on purpose to examine each df created
+    df.0 <-
+      Pan.final[Pan.final$P53.Mutation %in% mutation,] # isolate an individual mutant
+    df.1 <- select(df.0, -Case.Study) # removes case study column
+     df.2 <- unique(df.1, nmax = 2)
+    df.3 <-
+      spread(data = df.2,
+             key = Gene.Symbol,
+             value = mRNA.Value) # change to wide format to make matrix
+    rownames(df.3) <- df.3$Patient.ID
+    df.4 <- select(df.3, -Patient.ID, -P53.Mutation)
+    df.cor <-
+      cor(df.4, method = "spearman", use = "pairwise.complete.obs")
+    df.5 <- t(as.matrix(df.cor[NOX, ]))
+    rownames(df.5) <- mutation
     
-    # now create a heatmap
-    png(paste(deparse(substitute(list)), # deparse(substitute()) calls the name of the df as character string
-              "_nogrouping.png"), width = wid, height = hei, units = 'in', res = dpi)
+    # so now df.5 is the defined row with rho values
     
-    superheat(
-      cor.select.2,
-      bottom.label.text.size = 3,
-      scale = F,
-      bottom.label.text.angle = 90,
-      grid.hline.col = "white",
-      grid.vline.col = "white",
-      grid.hline.size = 1,
-      grid.vline.size = 1,
-      pretty.order.rows = TRUE,
-      pretty.order.cols = TRUE,
-      left.label.text.alignment = "right",
-      bottom.label.text.alignment = "right",
-      heat.pal = c("turquoise", "white", "violetred1"),
-      heat.lim = c(-1,1),
-      legend.breaks = c(-0.8,0,0.8)
-      )
-    
-    
-       dev.off()
+    df.6 <- df.5[, gene_list]
+    df.6
   }
+  
+  R175H <- filter.nox(mutation = "R175H")
+  R248Q <- filter.nox(mutation = "R248Q")
+  R273H <- filter.nox(mutation = "R273H")
+  R273C <- filter.nox(mutation = "R273C")
+  R248W <- filter.nox(mutation = "R248W")
+  Y220C <- filter.nox(mutation = "Y220C")
+  R249S <- filter.nox(mutation = "R249S")
+  G245D <- filter.nox(mutation = "G245D")
+  R273C <- filter.nox(mutation = "R273C")
+  R248Q <- filter.nox(mutation = "R248Q")
+  H179R <- filter.nox(mutation = "H179R")
+  R282W <- filter.nox(mutation = "R282W")
+  V157F <- filter.nox(mutation = "V157F")
+  H193R <- filter.nox(mutation = "H193R")
+  R158L <- filter.nox(mutation = "R158L")
+  R273L <- filter.nox(mutation = "R273L")
+  R158L <- filter.nox(mutation = "R158L")
+  H179R <- filter.nox(mutation = "H179R")
+  G245S <- filter.nox(mutation = "G245S")
+  WT <- filter.nox(mutation = "WT")
 
-## Run Function against the different lists
-# doing this separately so I can fine-tune the image sizes
-calc.rho.unclustered.no_p53(list = EMT.SAbiosci.genes, hei = 5, wid = 13)
-calc.rho.unclustered.no_p53(list = Adhesion.SAbiosci.genes, hei = 5, wid = 6.5)
-calc.rho.unclustered.no_p53(list = MET.SAbiosci.genes, hei = 5, wid = 6.5)
-calc.rho.unclustered.no_p53(list = Migration.SAbiosci.genes, hei = 5, wid = 6.5)
-calc.rho.unclustered.no_p53(list = Adh.Junctions.SAbiosci.genes, hei = 5, wid = 6.5)
-calc.rho.unclustered.no_p53(list = Angiogensis.SAbiosci.genes, hei = 5, wid = 6.5)
-calc.rho.unclustered.no_p53(list = PRO.Fibrosis.SAbiosci.genes, hei = 5, wid = 6.5)
+  all_grouping <- rbind(
+    R175H,
+    R248Q,
+    R273H,
+    R273C,
+    R248W,
+    Y220C,
+    R249S,
+    G245D,
+    R273C,
+    R248Q,
+    H179R,
+    R282W,
+    V157F,
+    H193R,
+    R158L,
+    R273L,
+    # G248S, # very few of these
+    R158L,
+    # C175F, # very few of these
+    H179R,
+    G245S,
+    WT
+  )
+  
+  combined.rho <- unique(as.data.frame(all_grouping))
+  
+  # noxes tha should no tbe included into the heatmap 
+  noxes.vector <- c("NOX4", "NOX1", "CYBB", "CYBA", "NOX3", "NOX5", "DUOX1", "DUOX2") # specified order
+  
+  combined.rho.final <- combined.rho[, !colnames(combined.rho) %in% noxes.vector]
+  
+  png(paste(deparse(substitute(gene_list_master)), NOX.master, # deparse(substitute()) calls the name of the df as character string
+            "_byp53.png"), width = wid, height = hei, units = 'in', res = dpi)
+  
+  superheat(
+    combined.rho.final,
+    bottom.label.text.angle = 90,
+    bottom.label.text.size = 3,
+    scale = F,
+    grid.hline.col = "white",
+    grid.vline.col = "white",
+    grid.hline.size = 1,
+    grid.vline.size = 1,
+    pretty.order.rows = T, # unspervised clustering for rows, t= true
+    pretty.order.cols = T,
+    left.label.text.alignment = "right",
+    bottom.label.text.alignment = "right",
+    heat.pal = c("turquoise", "white", "violetred1"),
+    heat.lim = c(-1,1),
+    legend.breaks = c(-0.8,0,0.8))
+  
+  
+  dev.off()
+  
+  png(paste(deparse(substitute(gene_list_master)), NOX.master, # deparse(substitute()) calls the name of the df as character string
+            "_byp53_withdendogram.png"), width = wid, height = hei, units = 'in', res = dpi)
+  
+  superheat(
+    combined.rho.final,
+    bottom.label.text.angle = 90,
+    bottom.label.text.size = 3,
+    scale = F,
+    grid.hline.col = "white",
+    grid.vline.col = "white",
+    grid.hline.size = 1,
+    grid.vline.size = 1,
+    col.dendrogram = T,
+    row.dendrogram = T,
+    left.label.text.alignment = "right",
+    bottom.label.text.alignment = "right",
+    heat.pal = c("turquoise", "white", "violetred1"),
+    heat.lim = c(-1,1),
+    legend.breaks = c(-0.8,0,0.8))
+  
+  
+  dev.off()
+}
+Make.heatmap.p53.n <- function(NOX.master = "NOX4", gene_list_master = EMT.SAbiosci.genes, dpi = 600, wid = 9, hei = 4) {
+  # this function will attach a yplot with n to the heatmap
+  filter.nox <- function(NOX = NOX.master, mutation, gene_list = gene_list_master) {
+    # outputs the rho of the specificed NOX to the specified genes in the specific p53 mutant group
+    # I chosed not to use piping operator on purpose to examine each df created
+    df.0 <-
+      Pan.final[Pan.final$P53.Mutation %in% mutation,] # isolate an individual mutant
+    df.1 <- select(df.0, -Case.Study) # removes case study column
+    df.2 <- unique(df.1, nmax = 2)
+    df.3 <-
+      spread(data = df.2,
+             key = Gene.Symbol,
+             value = mRNA.Value) # change to wide format to make matrix
+    rownames(df.3) <- df.3$Patient.ID
+    df.4 <- select(df.3, -Patient.ID, -P53.Mutation)
+    df.cor <-
+      cor(df.4, method = "spearman", use = "pairwise.complete.obs")
+    df.5 <- t(as.matrix(df.cor[NOX, ]))
+    rownames(df.5) <- mutation
+    
+    # so now df.5 is the defined row with rho values
+    
+    df.6 <- df.5[, gene_list]
+    df.6
+  }
+  
+  R175H <- filter.nox(mutation = "R175H")
+  R248Q <- filter.nox(mutation = "R248Q")
+  R273H <- filter.nox(mutation = "R273H")
+  R273C <- filter.nox(mutation = "R273C")
+  R248W <- filter.nox(mutation = "R248W")
+  Y220C <- filter.nox(mutation = "Y220C")
+  R249S <- filter.nox(mutation = "R249S")
+  G245D <- filter.nox(mutation = "G245D")
+  R273C <- filter.nox(mutation = "R273C")
+  R248Q <- filter.nox(mutation = "R248Q")
+  H179R <- filter.nox(mutation = "H179R")
+  R282W <- filter.nox(mutation = "R282W")
+  V157F <- filter.nox(mutation = "V157F")
+  H193R <- filter.nox(mutation = "H193R")
+  R158L <- filter.nox(mutation = "R158L")
+  R273L <- filter.nox(mutation = "R273L")
+  R158L <- filter.nox(mutation = "R158L")
+  H179R <- filter.nox(mutation = "H179R")
+  G245S <- filter.nox(mutation = "G245S")
+  WT <- filter.nox(mutation = "WT")
+  
+  all_grouping <- rbind(
+    R175H,
+    R248Q,
+    R273H,
+    R273C,
+    R248W,
+    Y220C,
+    R249S,
+    G245D,
+    R273C,
+    R248Q,
+    H179R,
+    R282W,
+    V157F,
+    H193R,
+    R158L,
+    R273L,
+    # G248S, # very few of these
+    R158L,
+    # C175F, # very few of these
+    H179R,
+    G245S,
+    WT
+  )
+  
+  combined.rho <- unique(as.data.frame(all_grouping))
+  combined.n <- Pan.final %>% 
+    group_by(P53.Mutation) %>% 
+    summarise(count = (length(P53.Mutation)/138)) # 138 genes per person
+  
+  # noxes tha should no tbe included into the heatmap 
+  noxes.vector <- c("NOX4", "NOX1", "CYBB", "CYBA", "NOX3", "NOX5", "DUOX1", "DUOX2") # specified order
+  
+  combined.rho.final <- combined.rho[, !colnames(combined.rho) %in% noxes.vector]
+  
+  png(paste(deparse(substitute(gene_list_master)), NOX.master, # deparse(substitute()) calls the name of the df as character string
+            "_byp53_n.png"), width = wid, height = hei, units = 'in', res = dpi)
+  
+  superheat(
+    combined.rho.final,
+    bottom.label.text.angle = 90,
+    bottom.label.text.size = 3,
+    scale = F,
+    grid.hline.col = "white",
+    grid.vline.col = "white",
+    grid.hline.size = 1,
+    grid.vline.size = 1,
+    pretty.order.rows = T, # unspervised clustering for rows, t= true
+    pretty.order.cols = T,
+    left.label.text.alignment = "right",
+    bottom.label.text.alignment = "right",
+    heat.pal = c("turquoise", "white", "violetred1"),
+    heat.lim = c(-1,1),
+    yr = (combined.n$count),
+    yr.axis.name = "n of samples",
+    yr.plot.type = "bar",
+    legend.breaks = c(-0.8,0,0.8))
+  
+  
+  dev.off()
+  
 
-# calc.rho.unclustered.no_p53(list = Gene.list, hei = 20, wid = 40)
+}
+
+# for NOX4
+Make.heatmap.p53(NOX.master = "NOX4", gene_list_master = EMT.SAbiosci.genes, dpi = 900, wid = 10.5, hei = 6.5)
+Make.heatmap.p53.n(NOX.master = "NOX4", gene_list_master = EMT.SAbiosci.genes, dpi = 900, wid = 10.5, hei = 6.5)
+
+#### NADPHoxidase correlations to genepanels faceted by WT OR MUT (generalized) ----
+
+
+Make.heatmap.p53.generalized <- function(NOX.master = "NOX4", gene_list_master = EMT.SAbiosci.genes, dpi = 600, wid = 9, hei = 6.5) {
+  
+  filter.nox.WT <- function(NOX = NOX.master, mutation, gene_list = gene_list_master) {
+    # outputs the rho of the specificed NOX to the specified genes in the specific p53 mutant group
+    # I chosed not to use piping operator on purpose to examine each df created
+    df.0 <-
+      Pan.final[Pan.final$P53.Mutation %in% mutation,] # isolate an individual mutant
+    df.1 <- select(df.0, -Case.Study) # removes case study column
+    df.2 <- unique(df.1, nmax = 2)
+    df.3 <-
+      spread(data = df.2,
+             key = Gene.Symbol,
+             value = mRNA.Value) # change to wide format to make matrix
+    rownames(df.3) <- df.3$Patient.ID
+    df.4 <- select(df.3, -Patient.ID, -P53.Mutation)
+    df.cor <-
+      cor(df.4, method = "spearman", use = "pairwise.complete.obs")
+    df.5 <- t(as.matrix(df.cor[NOX, ]))
+    rownames(df.5) <- mutation
+    
+    # so now df.5 is the defined row with rho values
+    
+    df.6 <- df.5[, gene_list]
+    df.6
+  }
+  filter.nox.MT <- function(NOX = NOX.master, mutation, gene_list = gene_list_master) {
+      # outputs the rho of the specificed NOX to the specified genes in the specific p53 mutant group
+      # I chosed not to use piping operator on purpose to examine each df created
+      df.0 <-
+        Pan.final[Pan.final$P53.Mutation %in% mutation,]
+      df.1 <- select(df.0, -Case.Study) # removes case study column
+      df.2 <- unique(df.1, nmax = 2)
+      df.3 <-
+        spread(data = df.2,
+               key = Gene.Symbol,
+               value = mRNA.Value) # change to wide format to make matrix
+      df.4 <- select(df.3, -P53.Mutation) # since all are going to be designated as mutant, we remove the p53 annotation
+      df.5 <- unique(df.4)
+      rownames(df.5) <- df.5$Patient.ID
+      df.6 <- select(df.5, -Patient.ID)
+      df.cor <-
+        cor(df.6, method = "spearman", use = "pairwise.complete.obs")
+      df.7 <- t(as.matrix(df.cor[NOX, ])) #t() transposes the matrix and get it in format we want
+      rownames(df.7) <- "Mut"
+      
+      # so now df.5 is the defined row with rho values
+      
+      df.8 <- df.7[, gene_list]
+      df.8
+  }
+  
+  
+  WT <- filter.nox.WT(mutation = "WT")
+  MUT <- filter.nox.MT(mutation = c("R175H",
+                                    "R248Q",
+                                    "R273H",
+                                    "R273C",
+                                    "R248W",
+                                    "Y220C",
+                                    "R249S",
+                                    "G245D",
+                                    "R273C",
+                                    "R248Q",
+                                    "H179R",
+                                    "R282W",
+                                    "V157F",
+                                    "H193R",
+                                    "R158L",
+                                    "R273L",
+                                    # G248S, # very few of these
+                                    "R158L",
+                                    # C175F, # very few of these
+                                    "H179R",
+                                    "G245S"))
+  Blank = as.table(1)
+  all_grouping <- rbind(
+    MUT,
+    WT,
+    Blank,
+    Blank,
+    Blank,
+    Blank,
+    Blank,
+    Blank,
+    Blank,
+    Blank,
+    Blank,
+    Blank,
+    Blank,
+    Blank)
+  
+  combined.rho <- (as.data.frame(all_grouping))
+  
+  # noxes tha should no tbe included into the heatmap 
+  noxes.vector <- c("NOX4", "NOX1", "CYBB", "CYBA", "NOX3", "NOX5", "DUOX1", "DUOX2") # specified order
+  
+  combined.rho.final <- combined.rho[, !colnames(combined.rho) %in% noxes.vector]
+  
+  png(paste(deparse(substitute(gene_list_master)), NOX.master, # deparse(substitute()) calls the name of the df as character string
+            "_byp53.png"), width = wid, height = hei, units = 'in', res = dpi)
+  
+  superheat(
+    combined.rho.final,
+    bottom.label.text.angle = 90,
+    bottom.label.text.size = 3,
+    scale = F,
+    grid.hline.col = "white",
+    grid.vline.col = "white",
+    grid.hline.size = 1,
+    grid.vline.size = 1,
+    pretty.order.rows = T, # unspervised clustering for rows, t= true
+    pretty.order.cols = T,
+    left.label.text.alignment = "right",
+    bottom.label.text.alignment = "right",
+    heat.pal = c("turquoise", "white", "violetred1"),
+    heat.lim = c(-1,1),
+    legend = F)
+  
+  
+  dev.off()
+  
+ 
+  ##
+  png(paste(deparse(substitute(gene_list_master)), NOX.master, # deparse(substitute()) calls the name of the df as character string
+            "_byp53_withdendogram.png"), width = wid, height = hei, units = 'in', res = dpi)
+  
+  superheat(
+    combined.rho.final,
+    bottom.label.text.angle = 90,
+    bottom.label.text.size = 3,
+    scale = F,
+    grid.hline.col = "white",
+    grid.vline.col = "white",
+    grid.hline.size = 1,
+    grid.vline.size = 1,
+    col.dendrogram = T,
+    row.dendrogram = F,
+    left.label.text.alignment = "right",
+    bottom.label.text.alignment = "right",
+    heat.pal = c("turquoise", "white", "violetred1"),
+    heat.lim = c(-1,1),
+    legend = F)
+  
+  
+  dev.off()
+  
+  ##
+  png(paste(deparse(substitute(gene_list_master)), NOX.master, # deparse(substitute()) calls the name of the df as character string
+            "_byp53_with_n_and_dendogram.png"), width = wid, height = hei, units = 'in', res = dpi)
+  
+  superheat(
+    combined.rho.final,
+    bottom.label.text.angle = 90,
+    bottom.label.text.size = 3,
+    scale = F,
+    grid.hline.col = "white",
+    grid.vline.col = "white",
+    grid.hline.size = 1,
+    grid.vline.size = 1,
+    col.dendrogram = T,
+    row.dendrogram = F,
+    X.text = round(combined.rho.final, 1),
+    X.text.size = 3,
+    X.text.col = "grey",
+    left.label.text.alignment = "right",
+    bottom.label.text.alignment = "right",
+    heat.pal = c("turquoise", "white", "violetred1"),
+    heat.lim = c(-1,1),
+    legend = F)
+  
+  
+  dev.off()
+}
+
+
+# for NOX4
+Make.heatmap.p53.generalized(NOX.master = "NOX4", gene_list_master = EMT.SAbiosci.genes, dpi = 900, wid = 10.5, hei = 6.5)
 
