@@ -465,12 +465,11 @@ dl.RNA.select <- function(y) {
     # CNV_SNP = T, # copy number alterantion in germline cells
     # Methylation = T, # methylation provided by array platform
     # RPPA = T, # reverse phase protein array expression
-    RNAseq2_Gene_Norm = TRUE,
+    RNASeq2GeneNorm = T,
+    RNAseq2Norm = "normalized_count",
     # normalized count
-    fileSizeLimit = 99999,
     # getUUIDs = T,
-    destdir = "FireHose Data",
-    forceDownload = F
+    forceDownload = T
   )
   edit <- gather(rownames_to_column(as.data.frame(getData(set, type = "RNASeq2GeneNorm")), var = "Gene.Symbol"), 
                  key = "Patient.ID", value = "mRNA.Value", -Gene.Symbol) # extract RNAseq, transform row name as a colmn, then transform into long form
@@ -757,7 +756,7 @@ calc.rho.unclustered.no_p53 <-
       pretty.order.cols = TRUE,
       left.label.text.alignment = "right",
       bottom.label.text.alignment = "right",
-      heat.pal = c("turquoise", "white", "violetred1"),
+      heat.pal = c("deepskyblue3", "white", "red2"),
       heat.lim = c(-1,1),
       legend.breaks = c(-0.8,0,0.8)
       )

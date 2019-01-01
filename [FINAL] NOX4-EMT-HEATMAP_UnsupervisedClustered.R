@@ -11,8 +11,9 @@ library(tibble)
 library(ggforce)
 library(superheat) 
 # custom install from github, 
-# install.packages("devtools")
-# devtools::install_github("rlbarter/superheat")
+# source("https://install-github.me/r-lib/callr") # install callr dependency for devtools
+# install.packages("devtools") # install devtools
+# devtools::install_github("rlbarter/superheat") # use devtools to install superheat
 library(dplyr)
 
 ### Set Working Directory PLEASE ADJUST TO YOUR COMPUTER ----
@@ -462,12 +463,11 @@ dl.RNA.select <- function(y) {
     # CNV_SNP = T, # copy number alterantion in germline cells
     # Methylation = T, # methylation provided by array platform
     # RPPA = T, # reverse phase protein array expression
-    RNAseq2_Gene_Norm = TRUE,
+    RNASeq2GeneNorm = T,
+    RNAseq2Norm = "normalized_count",
     # normalized count
-    fileSizeLimit = 99999,
     # getUUIDs = T,
-    destdir = "FireHose Data",
-    forceDownload = F
+    forceDownload = T
   )
   edit <- gather(rownames_to_column(as.data.frame(getData(set, type = "RNASeq2GeneNorm")), var = "Gene.Symbol"), 
                  key = "Patient.ID", value = "mRNA.Value", -Gene.Symbol) # extract RNAseq, transform row name as a colmn, then transform into long form
@@ -719,7 +719,7 @@ calc.rho.unclustered.no_p53 <-
       pretty.order.cols = TRUE,
       left.label.text.alignment = "right",
       bottom.label.text.alignment = "right",
-      heat.pal = c("turquoise", "white", "violetred1"),
+      heat.pal = c("deepskyblue3", "white", "red2"),
       heat.lim = c(-0.8,0.8))
     
        dev.off()
@@ -762,7 +762,7 @@ head(Pan.final)
 #### NADPHoxidase correlations to genepanels faceted by p53 ----
 
 
-Make.heatmap.p53 <- function(NOX.master = "NOX4", gene_list_master = EMT.SAbiosci.genes, dpi = 600, wid = 9, hei = 4) {
+Make.heatmap.p53 <- function(NOX.master = "NOX4", BLsize = 1, gene_list_master = EMT.SAbiosci.genes, dpi = 600, wid = 9, hei = 4) {
   
   filter.nox <- function(NOX = NOX.master, mutation, gene_list = gene_list_master) {
     # outputs the rho of the specificed NOX to the specified genes in the specific p53 mutant group
@@ -847,7 +847,7 @@ Make.heatmap.p53 <- function(NOX.master = "NOX4", gene_list_master = EMT.SAbiosc
   superheat(
     combined.rho.final,
     bottom.label.text.angle = 90,
-    bottom.label.text.size = 3,
+    bottom.label.text.size = 4,
     scale = F,
     grid.hline.col = "white",
     grid.vline.col = "white",
@@ -857,7 +857,8 @@ Make.heatmap.p53 <- function(NOX.master = "NOX4", gene_list_master = EMT.SAbiosc
     pretty.order.cols = T,
     left.label.text.alignment = "right",
     bottom.label.text.alignment = "right",
-    heat.pal = c("turquoise", "white", "violetred1"),
+    bottom.label.size = BLsize,
+    heat.pal = c("deepskyblue3", "white", "red2"),
     heat.lim = c(-1,1),
     legend.breaks = c(-0.8,0,0.8))
   
@@ -870,7 +871,7 @@ Make.heatmap.p53 <- function(NOX.master = "NOX4", gene_list_master = EMT.SAbiosc
   superheat(
     combined.rho.final,
     bottom.label.text.angle = 90,
-    bottom.label.text.size = 3,
+    bottom.label.text.size = 4,
     scale = F,
     grid.hline.col = "white",
     grid.vline.col = "white",
@@ -880,132 +881,22 @@ Make.heatmap.p53 <- function(NOX.master = "NOX4", gene_list_master = EMT.SAbiosc
     row.dendrogram = T,
     left.label.text.alignment = "right",
     bottom.label.text.alignment = "right",
-    heat.pal = c("turquoise", "white", "violetred1"),
+    bottom.label.size = BLsize,
+    heat.pal = c("deepskyblue3", "white", "red2"),
     heat.lim = c(-1,1),
     legend.breaks = c(-0.8,0,0.8))
   
   
   dev.off()
-}
-Make.heatmap.p53.n <- function(NOX.master = "NOX4", gene_list_master = EMT.SAbiosci.genes, dpi = 600, wid = 9, hei = 4) {
-  # this function will attach a yplot with n to the heatmap
-  filter.nox <- function(NOX = NOX.master, mutation, gene_list = gene_list_master) {
-    # outputs the rho of the specificed NOX to the specified genes in the specific p53 mutant group
-    # I chosed not to use piping operator on purpose to examine each df created
-    df.0 <-
-      Pan.final[Pan.final$P53.Mutation %in% mutation,] # isolate an individual mutant
-    df.1 <- select(df.0, -Case.Study) # removes case study column
-    df.2 <- unique(df.1, nmax = 2)
-    df.3 <-
-      spread(data = df.2,
-             key = Gene.Symbol,
-             value = mRNA.Value) # change to wide format to make matrix
-    rownames(df.3) <- df.3$Patient.ID
-    df.4 <- select(df.3, -Patient.ID, -P53.Mutation)
-    df.cor <-
-      cor(df.4, method = "spearman", use = "pairwise.complete.obs")
-    df.5 <- t(as.matrix(df.cor[NOX, ]))
-    rownames(df.5) <- mutation
-    
-    # so now df.5 is the defined row with rho values
-    
-    df.6 <- df.5[, gene_list]
-    df.6
-  }
-  
-  R175H <- filter.nox(mutation = "R175H")
-  R248Q <- filter.nox(mutation = "R248Q")
-  R273H <- filter.nox(mutation = "R273H")
-  R273C <- filter.nox(mutation = "R273C")
-  R248W <- filter.nox(mutation = "R248W")
-  Y220C <- filter.nox(mutation = "Y220C")
-  R249S <- filter.nox(mutation = "R249S")
-  G245D <- filter.nox(mutation = "G245D")
-  R273C <- filter.nox(mutation = "R273C")
-  R248Q <- filter.nox(mutation = "R248Q")
-  H179R <- filter.nox(mutation = "H179R")
-  R282W <- filter.nox(mutation = "R282W")
-  V157F <- filter.nox(mutation = "V157F")
-  H193R <- filter.nox(mutation = "H193R")
-  R158L <- filter.nox(mutation = "R158L")
-  R273L <- filter.nox(mutation = "R273L")
-  R158L <- filter.nox(mutation = "R158L")
-  H179R <- filter.nox(mutation = "H179R")
-  G245S <- filter.nox(mutation = "G245S")
-  WT <- filter.nox(mutation = "WT")
-  
-  all_grouping <- rbind(
-    R175H,
-    R248Q,
-    R273H,
-    R273C,
-    R248W,
-    Y220C,
-    R249S,
-    G245D,
-    R273C,
-    R248Q,
-    H179R,
-    R282W,
-    V157F,
-    H193R,
-    R158L,
-    R273L,
-    # G248S, # very few of these
-    R158L,
-    # C175F, # very few of these
-    H179R,
-    G245S,
-    WT
-  )
-  
-  combined.rho <- unique(as.data.frame(all_grouping))
-  combined.n <- Pan.final %>% 
-    group_by(P53.Mutation) %>% 
-    summarise(count = (length(P53.Mutation)/138)) # 138 genes per person
-  
-  # noxes tha should no tbe included into the heatmap 
-  noxes.vector <- c("NOX4", "NOX1", "CYBB", "CYBA", "NOX3", "NOX5", "DUOX1", "DUOX2") # specified order
-  
-  combined.rho.final <- combined.rho[, !colnames(combined.rho) %in% noxes.vector]
-  
-  png(paste(deparse(substitute(gene_list_master)), NOX.master, # deparse(substitute()) calls the name of the df as character string
-            "_byp53_n.png"), width = wid, height = hei, units = 'in', res = dpi)
-  
-  superheat(
-    combined.rho.final,
-    bottom.label.text.angle = 90,
-    bottom.label.text.size = 3,
-    scale = F,
-    grid.hline.col = "white",
-    grid.vline.col = "white",
-    grid.hline.size = 1,
-    grid.vline.size = 1,
-    pretty.order.rows = T, # unspervised clustering for rows, t= true
-    pretty.order.cols = T,
-    left.label.text.alignment = "right",
-    bottom.label.text.alignment = "right",
-    heat.pal = c("turquoise", "white", "violetred1"),
-    heat.lim = c(-1,1),
-    yr = (combined.n$count),
-    yr.axis.name = "n of samples",
-    yr.plot.type = "bar",
-    legend.breaks = c(-0.8,0,0.8))
-  
-  
-  dev.off()
-  
-
 }
 
 # for NOX4
-Make.heatmap.p53(NOX.master = "NOX4", gene_list_master = EMT.SAbiosci.genes, dpi = 900, wid = 10.5, hei = 6.5)
-Make.heatmap.p53.n(NOX.master = "NOX4", gene_list_master = EMT.SAbiosci.genes, dpi = 900, wid = 10.5, hei = 6.5)
+Make.heatmap.p53(NOX.master = "NOX4", BLsize = 0.401, gene_list_master = EMT.SAbiosci.genes, dpi = 900, wid = 10.5, hei = 7)
 
 #### NADPHoxidase correlations to genepanels faceted by WT OR MUT (generalized) ----
 
 
-Make.heatmap.p53.generalized <- function(NOX.master = "NOX4", gene_list_master = EMT.SAbiosci.genes, dpi = 600, wid = 9, hei = 6.5) {
+Make.heatmap.p53.generalized <- function(NOX.master = "NOX4", BLsize = 0.401, gene_list_master = EMT.SAbiosci.genes, dpi = 600, wid = 9, hei = 6.5) {
   
   filter.nox.WT <- function(NOX = NOX.master, mutation, gene_list = gene_list_master) {
     # outputs the rho of the specificed NOX to the specified genes in the specific p53 mutant group
@@ -1109,7 +1000,7 @@ Make.heatmap.p53.generalized <- function(NOX.master = "NOX4", gene_list_master =
   superheat(
     combined.rho.final,
     bottom.label.text.angle = 90,
-    bottom.label.text.size = 3,
+    bottom.label.text.size = 4,
     scale = F,
     grid.hline.col = "white",
     grid.vline.col = "white",
@@ -1119,7 +1010,8 @@ Make.heatmap.p53.generalized <- function(NOX.master = "NOX4", gene_list_master =
     pretty.order.cols = T,
     left.label.text.alignment = "right",
     bottom.label.text.alignment = "right",
-    heat.pal = c("turquoise", "white", "violetred1"),
+    bottom.label.size = BLsize,
+    heat.pal = c("deepskyblue3", "white", "red2"),
     heat.lim = c(-1,1),
     legend = F)
   
@@ -1134,7 +1026,7 @@ Make.heatmap.p53.generalized <- function(NOX.master = "NOX4", gene_list_master =
   superheat(
     combined.rho.final,
     bottom.label.text.angle = 90,
-    bottom.label.text.size = 3,
+    bottom.label.text.size = 4,
     scale = F,
     grid.hline.col = "white",
     grid.vline.col = "white",
@@ -1144,7 +1036,8 @@ Make.heatmap.p53.generalized <- function(NOX.master = "NOX4", gene_list_master =
     row.dendrogram = F,
     left.label.text.alignment = "right",
     bottom.label.text.alignment = "right",
-    heat.pal = c("turquoise", "white", "violetred1"),
+    bottom.label.size = BLsize,
+    heat.pal = c("deepskyblue3", "white", "red2"),
     heat.lim = c(-1,1),
     legend = F)
   
@@ -1158,7 +1051,7 @@ Make.heatmap.p53.generalized <- function(NOX.master = "NOX4", gene_list_master =
   superheat(
     combined.rho.final,
     bottom.label.text.angle = 90,
-    bottom.label.text.size = 3,
+    bottom.label.text.size = 4,
     scale = F,
     grid.hline.col = "white",
     grid.vline.col = "white",
@@ -1171,7 +1064,8 @@ Make.heatmap.p53.generalized <- function(NOX.master = "NOX4", gene_list_master =
     X.text.col = "grey",
     left.label.text.alignment = "right",
     bottom.label.text.alignment = "right",
-    heat.pal = c("turquoise", "white", "violetred1"),
+    bottom.label.size = BLsize,
+    heat.pal = c("deepskyblue3", "white", "red2"),
     heat.lim = c(-1,1),
     legend = F)
   
@@ -1183,3 +1077,8 @@ Make.heatmap.p53.generalized <- function(NOX.master = "NOX4", gene_list_master =
 # for NOX4
 Make.heatmap.p53.generalized(NOX.master = "NOX4", gene_list_master = EMT.SAbiosci.genes, dpi = 900, wid = 10.5, hei = 6.5)
 
+CPCOLS <- c("#2398EB", "#33a02c", "#e31a1c")
+
+ggplot(iris, aes(Sepal.Length, Petal.Length)) +
+      geom_point(aes(col = Species)) +
+      scale_colour_manual(values = CPCOLS)
