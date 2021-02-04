@@ -1,5 +1,5 @@
-# Ma_2020
-R Code and Misc Files for Ma, Boudreau, Leto 2020 publication.
+# Pan-Cancer Analysis Shows TP53 Mutations Modulate the Association of NOX4 with Genetic Programs of Cancer Progression and Clinical Outcome
+R Code and Misc Files for Ma, Boudreau, Leto 2021 publication in [Antioxidant](https://www.mdpi.com/2076-3921/10/2/235).
 
 <a href="https://zenodo.org/badge/latestdoi/93648151"><img src="https://zenodo.org/badge/93648151.svg" alt="DOI"></a>
 
